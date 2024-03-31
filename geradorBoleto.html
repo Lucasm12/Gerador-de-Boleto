@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Modelo de Boleto</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #modelo-boleto {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        input[type="number"] {
+            padding: 5px;
+            font-size: 16px;
+            width: 150px;
+            margin-bottom: 10px;
+        }
+
+        input[type="date"] {
+            padding: 5px;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        #barcode {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gerador de Modelo de Boleto</h1>
+        <input type="number" id="valor-input" step="0.01" placeholder="Insira o valor do boleto">
+        <input type="date" id="vencimento-input">
+        <button id="gerar-boleto-btn">Gerar Novo Modelo de Boleto</button>
+        <div id="modelo-boleto"></div>
+        <svg id="barcode"></svg>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+    <script>
+        function somaDigitosDoNumero(number) {
+          let sum = 0;
+          while (number > 0) {
+            sum += number % 10;
+            number = Math.floor(number / 10);
+          }
+          return sum;
+        }
+
+        function calculaDigitoVerificadorMod10(codigoBarrasSemDigito) {
+          const digitos = codigoBarrasSemDigito.split("");
+          const soma = digitos.reduceRight((soma, digitoAtual, indexAtual) => {
+            const multiplicador = ((digitos.length - indexAtual) % 2) + 1;
+            const numero = Number.parseInt(digitoAtual, 10);
+            return soma + somaDigitosDoNumero(numero * multiplicador);
+          }, 0);
+          const digitoVerificador = (1000 - soma) % 10;
+
+          return digitoVerificador.toString();
+        }
+
+        function geraBoletoSabesp(valor, dataVencimento) {
+          const valorString = valor.toFixed(2).replace(".", "").padStart(11, "0");
+          const template = "826xxxxxxxxxxx0097091071545194872159728yyyy";
+          const finalAleatorio = (Math.random() * 10000).toFixed(0).padStart(4, "0");
+          const templateComValores = template.replace(/x{11}/g, valorString).replace(/y{4}/, finalAleatorio);
+
+          const digitoVerificador = calculaDigitoVerificadorMod10(templateComValores);
+          const dia = dataVencimento.getDate().toString().padStart(2, '0');
+          const mes = (dataVencimento.getMonth() + 1).toString().padStart(2, '0');
+          const ano = dataVencimento.getFullYear().toString();
+          const dataVencimentoFormatada = `${dia}/${mes}/${ano}`;
+
+          return {
+            codigoBarras: templateComValores.substring(0, 3) + digitoVerificador + templateComValores.substring(3),
+            dataVencimento: dataVencimentoFormatada
+          };
+        }
+
+        function exibirModeloBoleto() {
+            var valor = parseFloat(document.getElementById('valor-input').value);
+            var dataVencimento = new Date(document.getElementById('vencimento-input').value);
+            
+            if (!isNaN(valor) && !isNaN(dataVencimento.getTime())) {
+                var boleto = geraBoletoSabesp(valor, dataVencimento);
+                var modeloElement = document.getElementById('modelo-boleto');
+                modeloElement.textContent = boleto.codigoBarras;
+                
+                JsBarcode("#barcode", boleto.codigoBarras, {
+                    format: "CODE128",
+                    lineColor: "#000",
+                    width: 2,
+                    height: 50,
+                    displayValue: false
+                });
+            } else {
+                alert('Por favor, insira um valor válido e uma data de vencimento válida para o boleto.');
+            }
+        }
+
+        var btn = document.getElementById('gerar-boleto-btn');
+        btn.addEventListener('click', exibirModeloBoleto);
+    </script>
+</body>
+</html>
